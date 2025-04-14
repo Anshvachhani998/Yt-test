@@ -1,7 +1,9 @@
 import logging
+import os
 from pytubefix import YouTube
 from pyrogram import Client, filters
 
+# Set up logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
@@ -11,11 +13,11 @@ app = Client
 def download_video(client, message):
     try:
         # Extract URL from the command
-        url = message.text.split(" ", 1)[1]  # Gets the part after "/Dl "
-        
-        if not url:
+        if len(message.text.split(" ", 1)) < 2:
             message.reply("Please provide a valid YouTube URL after the /Dl command.")
             return
+        
+        url = message.text.split(" ", 1)[1]  # Gets the part after "/Dl "
         
         logging.info(f"Received URL: {url}")
         logging.info("Generating OAuth token, please complete the browser login...")
@@ -26,14 +28,28 @@ def download_video(client, message):
             use_oauth=True,
             allow_oauth_cache=True  # Allow OAuth to be cached
         )
-        
+
+        # Check if OAuth token file is created
+        oauth_path = os.path.expanduser("~/.cache/pytubefix/oauth_token.json")
+        if os.path.exists(oauth_path):
+            logging.info(f"OAuth token saved successfully at {oauth_path}")
+        else:
+            logging.warning("OAuth token was not saved! Please ensure the OAuth process is completed properly.")
+
         logging.info("Video download started...")
-        yt.streams.get_highest_resolution().download()  # Download at highest resolution
-        
+
+        # Download the highest resolution stream
+        video_stream = yt.streams.get_highest_resolution()
+        video_stream.download(output_path="~/downloads")  # Adjust the path if needed
+
         # Sending the video back to Telegram
-        message.reply("Download completed successfully! Sending the video...")
-        message.reply_video(video=open("path/to/downloaded/video.mp4", 'rb'))  # Adjust the path if needed
-        
+        video_path = os.path.join(os.path.expanduser("~"), "downloads", video_stream.default_filename)
+        logging.info(f"Download completed successfully! Sending the video...")
+
+        message.reply_video(video=open(video_path, 'rb'))  # Adjust the path if needed
+
     except Exception as e:
         logging.error(f"An error occurred: {e}")
         message.reply(f"An error occurred: {e}")
+
+
